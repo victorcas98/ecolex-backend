@@ -2,6 +2,7 @@ version: "3.8"
 services:
   db:
     image: postgres:15
+    container_name: tcc-backend-db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres123
@@ -14,6 +15,7 @@ services:
 
   backend:
     build: .
+    container_name: tcc-backend
     depends_on:
       - db
     env_file:
@@ -21,8 +23,11 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - .:/app
-    command: ["npm", "run", "dev"]
+      - .:/app:cached   # monta só o código, não node_modules
+    tty: true
+    stdin_open: true
+    # roda backend automaticamente em background e mantém bash
+    command: ["sh", "-c", "npm run dev & bash"]
 
 volumes:
   db_data:
