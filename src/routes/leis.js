@@ -1,6 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
-import { getTemas, updateTemaVinculacoes } from "./temas.js";
+import { getTemas, updateTemaVinculacoes, updateTemaLeisVinculacoes } from "./temas.js";
 
 const router = Router();
 
@@ -29,7 +29,7 @@ router.post("/", upload.single("documento"), (req, res) => {
 
   const temasArray = JSON.parse(temasIds);
   const temas = getTemas();
-  
+
   // Validar se todos os temas existem
   const temasInvalidos = temasArray.filter(id => !temas.find(t => t.id === parseInt(id)));
   if (temasInvalidos.length > 0) {
@@ -43,48 +43,50 @@ router.post("/", upload.single("documento"), (req, res) => {
     nome,
     documento,
     link,
-    temas: temasArray.map(id => parseInt(id)), // IDs dos temas vinculados
+    temas: temasArray.map(id => parseInt(id)) // IDs dos temas vinculados
   };
 
   leis.push(novaLei);
 
-  // Atualizar vinculações nos temas
+  // CORREÇÃO: Atualizar vinculações nos temas - converter temaId para inteiro
   temasArray.forEach(temaId => {
-    updateTemaVinculacoes(parseInt(temaId), leis, requisitos);
+    const temaIdInt = parseInt(temaId);
+    updateTemaLeisVinculacoes(temaIdInt, novaLei.id);
   });
 
-  res.status(201).json(novaLei);
+  // Retornar no formato correto
+  const leiFormatada = {
+    id: novaLei.id.toString(),
+    nome: novaLei.nome,
+    temasIds: novaLei.temas.map(id => id.toString())
+  };
+
+  res.status(201).json(leiFormatada);
 });
 
-// Listar leis com temas populados
+// Listar leis com formato correto do fluxograma
 router.get("/", (req, res) => {
-  const temas = getTemas();
-  
-  const leisComTemas = leis.map(lei => ({
-    ...lei,
-    temasDetalhes: lei.temas ? lei.temas.map(temaId => 
-      temas.find(t => t.id === temaId)
-    ).filter(Boolean) : []
+  const leisFormatadas = leis.map(lei => ({
+    id: lei.id.toString(),
+    nome: lei.nome,
+    temasIds: lei.temas ? lei.temas.map(id => id.toString()) : []
   }));
   
-  res.json(leisComTemas);
+  res.json(leisFormatadas);
 });
 
-// Buscar lei por ID com temas populados
+// Buscar lei por ID com formato correto
 router.get("/:id", (req, res) => {
   const lei = leis.find((l) => l.id === parseInt(req.params.id));
   if (!lei) return res.status(404).json({ error: "Lei não encontrada" });
 
-  const temas = getTemas();
-  
-  const leiComTemas = {
-    ...lei,
-    temasDetalhes: lei.temas ? lei.temas.map(temaId => 
-      temas.find(t => t.id === temaId)
-    ).filter(Boolean) : []
+  const leiFormatada = {
+    id: lei.id.toString(),
+    nome: lei.nome,
+    temasIds: lei.temas ? lei.temas.map(id => id.toString()) : []
   };
 
-  res.json(leiComTemas);
+  res.json(leiFormatada);
 });
 
 // Atualizar lei
@@ -102,7 +104,7 @@ router.put("/:id", upload.single("documento"), (req, res) => {
   if (temasIds) {
     const temasArray = JSON.parse(temasIds);
     const temas = getTemas();
-    
+
     // Validar se todos os temas existem
     const temasInvalidos = temasArray.filter(id => !temas.find(t => t.id === parseInt(id)));
     if (temasInvalidos.length > 0) {
@@ -114,7 +116,10 @@ router.put("/:id", upload.single("documento"), (req, res) => {
     // Atualizar temas antigos (remover vinculação)
     if (lei.temas) {
       lei.temas.forEach(temaId => {
-        updateTemaVinculacoes(temaId, leis, requisitos);
+        const tema = temas.find(t => t.id === temaId);
+        if (tema) {
+          tema.leisIds = tema.leisIds.filter(id => id !== lei.id);
+        }
       });
     }
 
@@ -122,11 +127,21 @@ router.put("/:id", upload.single("documento"), (req, res) => {
 
     // Atualizar novos temas (adicionar vinculação)
     lei.temas.forEach(temaId => {
-      updateTemaVinculacoes(temaId, leis, requisitos);
+      const tema = temas.find(t => t.id === temaId);
+      if (tema) {
+        tema.leisIds.push(lei.id);
+      }
     });
   }
 
-  res.json(lei);
+  // Retornar no formato correto
+  const leiFormatada = {
+    id: lei.id.toString(),
+    nome: lei.nome,
+    temasIds: lei.temas ? lei.temas.map(id => id.toString()) : []
+  };
+
+  res.json(leiFormatada);
 });
 
 // Deletar lei

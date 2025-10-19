@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getTemas, updateTemaVinculacoes } from "./temas.js";
+import { getTemas, updateTemaVinculacoes, updateTemaRequisitosVinculacoes } from "./temas.js";
 import { getLeis } from "./leis.js";
 
 const router = Router();
@@ -9,7 +9,7 @@ let requisitos = [];
 
 // Criar requisito (OBRIGATÓRIO vincular a um tema)
 router.post("/", (req, res) => {
-  const { descricao, temaId } = req.body;
+  const { nome, temaId } = req.body;
 
   if (!temaId) {
     return res.status(400).json({ 
@@ -28,16 +28,26 @@ router.post("/", (req, res) => {
 
   const novoRequisito = {
     id: requisitos.length + 1,
-    descricao,
-    temaId: parseInt(temaId),
+    nome,
+    temaId: parseInt(temaId)
   };
 
   requisitos.push(novoRequisito);
 
   // Atualizar vinculações no tema
-  updateTemaVinculacoes(parseInt(temaId), getLeis(), requisitos);
+  updateTemaRequisitosVinculacoes(temaId, novoRequisito.id);
 
-  res.status(201).json(novoRequisito);
+  // Adicionar o ID do requisito ao tema vinculado
+  tema.requisitosIds.push(novoRequisito.id);
+
+  // Retornar no formato correto
+  const requisitoFormatado = {
+    id: novoRequisito.id.toString(),
+    nome: novoRequisito.nome,
+    temaId: novoRequisito.temaId.toString()
+  };
+
+  res.status(201).json(requisitoFormatado);
 });
 
 // Listar requisitos de um tema específico
@@ -49,14 +59,13 @@ router.get("/tema/:temaId", (req, res) => {
 
 // Listar todos os requisitos
 router.get("/", (req, res) => {
-  const temas = getTemas();
-  
-  const requisitosComTema = requisitos.map(req => ({
-    ...req,
-    tema: temas.find(t => t.id === req.temaId)
+  const requisitosFormatados = requisitos.map(req => ({
+    id: req.id.toString(),
+    nome: req.nome,
+    temaId: req.temaId.toString()
   }));
   
-  res.json(requisitosComTema);
+  res.json(requisitosFormatados);
 });
 
 // Buscar requisito por ID
@@ -64,13 +73,13 @@ router.get("/:id", (req, res) => {
   const requisito = requisitos.find((r) => r.id === parseInt(req.params.id));
   if (!requisito) return res.status(404).json({ error: "Requisito não encontrado" });
 
-  const temas = getTemas();
-  const requisitoComTema = {
-    ...requisito,
-    tema: temas.find(t => t.id === requisito.temaId)
+  const requisitoFormatado = {
+    id: requisito.id.toString(),
+    nome: requisito.nome,
+    temaId: requisito.temaId.toString()
   };
 
-  res.json(requisitoComTema);
+  res.json(requisitoFormatado);
 });
 
 // Atualizar requisito
@@ -78,9 +87,9 @@ router.put("/:id", (req, res) => {
   const requisito = requisitos.find((r) => r.id === parseInt(req.params.id));
   if (!requisito) return res.status(404).json({ error: "Requisito não encontrado" });
 
-  const { descricao, temaId } = req.body;
+  const { nome, temaId } = req.body;
 
-  requisito.descricao = descricao || requisito.descricao;
+  requisito.nome = nome || requisito.nome;
 
   // Se tema foi alterado, validar e atualizar vinculações
   if (temaId && parseInt(temaId) !== requisito.temaId) {
@@ -99,7 +108,14 @@ router.put("/:id", (req, res) => {
     updateTemaVinculacoes(parseInt(temaId), getLeis(), requisitos);
   }
 
-  res.json(requisito);
+  // Retornar no formato correto
+  const requisitoFormatado = {
+    id: requisito.id.toString(),
+    nome: requisito.nome,
+    temaId: requisito.temaId.toString()
+  };
+
+  res.json(requisitoFormatado);
 });
 
 // Deletar requisito

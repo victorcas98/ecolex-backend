@@ -22,7 +22,7 @@ const atualizarVinculacoesTema = (temaId) => {
     .map(req => req.id);
 };
 
-// Criar tema (independente)
+// Adicionar campo `id` ao tema
 router.post("/", (req, res) => {
   const { nome } = req.body;
 
@@ -32,25 +32,35 @@ router.post("/", (req, res) => {
   }
 
   const novoTema = {
-    id: temas.length + 1,
+    id: temas.length + 1, // Adicionando ID único
     nome,
     leisIds: [], // lista de ids de leis às quais o tema pertence
     requisitosIds: [], // será atualizado quando requisitos forem vinculados
   };
 
   temas.push(novoTema);
-  res.status(201).json(novoTema);
+
+  // Retornar no formato correto
+  const temaFormatado = {
+    id: novoTema.id.toString(), // Retornar ID como string
+    nome: novoTema.nome,
+    requisitosIds: novoTema.requisitosIds.map(id => id.toString()),
+    leisIds: novoTema.leisIds.map(id => id.toString())
+  };
+
+  res.status(201).json(temaFormatado);
 });
 
-// Listar TODOS os temas com informações completas
+// Listar TODOS os temas com formato correto
 router.get("/", (req, res) => {
-  const resultado = temas.map((tema) => ({
-    ...tema,
-    leis: tema.leisIds ? leis.filter(l => tema.leisIds.includes(l.id)) : [],
-    requisitos: requisitos.filter((r) => r.temaId === tema.id),
+  const temasFormatados = temas.map((tema) => ({
+    id: tema.id.toString(), // Adicionando ID ao retorno
+    nome: tema.nome,
+    requisitosIds: tema.requisitosIds ? tema.requisitosIds.map(id => id.toString()) : [],
+    leisIds: tema.leisIds ? tema.leisIds.map(id => id.toString()) : []
   }));
 
-  res.json(resultado);
+  res.json(temasFormatados);
 });
 
 // Listar temas não vinculados a nenhuma lei
@@ -65,20 +75,21 @@ router.get("/sem-lei", (req, res) => {
   res.json(temasLivres);
 });
 
-// Buscar um tema específico com informações completas
+// Buscar um tema
 router.get("/:id", (req, res) => {
   const temaId = parseInt(req.params.id);
   const tema = temas.find((t) => t.id === temaId);
 
   if (!tema) return res.status(404).json({ error: "Tema não encontrado" });
 
-  const temaCompleto = {
-    ...tema,
-    leis: tema.leisIds ? leis.filter(l => tema.leisIds.includes(l.id)) : [],
-    requisitos: requisitos.filter((r) => r.temaId === temaId),
+  const temaFormatado = {
+    id: tema.id.toString(), // Adicionando ID ao retorno
+    nome: tema.nome,
+    requisitosIds: tema.requisitosIds ? tema.requisitosIds.map(id => id.toString()) : [],
+    leisIds: tema.leisIds ? tema.leisIds.map(id => id.toString()) : []
   };
 
-  res.json(temaCompleto);
+  res.json(temaFormatado);
 });
 
 // Atualizar tema (apenas nome)
@@ -93,7 +104,16 @@ router.put("/:id", (req, res) => {
   }
 
   tema.nome = novoNome;
-  res.json(tema);
+
+  // Retornar no formato correto
+  const temaFormatado = {
+    id: tema.id.toString(), // Adicionando ID ao retorno
+    nome: tema.nome,
+    requisitosIds: tema.requisitosIds ? tema.requisitosIds.map(id => id.toString()) : [],
+    leisIds: tema.leisIds ? tema.leisIds.map(id => id.toString()) : []
+  };
+
+  res.json(temaFormatado);
 });
 
 // Deletar tema (remove vinculações de leis e requisitos)
@@ -117,6 +137,34 @@ router.delete("/:id", (req, res) => {
 });
 
 // Função exportada para atualizar vinculações (usada por outros módulos)
+export const updateTemaLeisVinculacoes = (temaId, leiId) => {
+  const tema = temas.find(t => t.id === temaId);
+  if (!tema) {
+    return;
+  }
+
+  console.log(`Tema encontrado: ${tema.nome}, leisIds antes:`, tema.leisIds); // Debug
+  
+  // Adicionar o novo ID ao array de leisIds, evitando duplicatas
+  if (!tema.leisIds.includes(leiId)) {
+    tema.leisIds.push(leiId);
+    console.log(`Lei ${leiId} adicionada ao tema ${temaId}. LeisIds depois:`, tema.leisIds); // Debug
+  } else {
+    console.log(`Lei ${leiId} já existe no tema ${temaId}`); // Debug
+  }
+};
+
+export const updateTemaRequisitosVinculacoes = (temaId, requisitoId) => {
+  const tema = temas.find(t => t.id === temaId);
+  if (!tema) return;
+
+  // Adicionar o novo ID ao array de requisitosIds, evitando duplicatas
+  if (!tema.requisitosIds.includes(requisitoId)) {
+    tema.requisitosIds.push(requisitoId);
+  }
+};
+
+// opcional: manter função combinada para compatibilidade
 export const updateTemaVinculacoes = (temaId, leisArray, requisitosArray) => {
   leis = leisArray;
   requisitos = requisitosArray;
