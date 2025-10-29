@@ -4,7 +4,7 @@ import { getTemas, updateTemaVinculacoes, updateTemaLeisVinculacoes } from "./te
 
 const router = Router();
 
-// Configuração do multer
+// Configuração do multaqui er
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "uploads/"),
   filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
@@ -58,6 +58,8 @@ router.post("/", upload.single("documento"), (req, res) => {
   const leiFormatada = {
     id: novaLei.id.toString(),
     nome: novaLei.nome,
+    link: novaLei.link,
+    documento: novaLei.documento,
     temasIds: novaLei.temas.map(id => id.toString())
   };
 
@@ -69,6 +71,8 @@ router.get("/", (req, res) => {
   const leisFormatadas = leis.map(lei => ({
     id: lei.id.toString(),
     nome: lei.nome,
+    link: lei.link,
+    documento: lei.documento,
     temasIds: lei.temas ? lei.temas.map(id => id.toString()) : []
   }));
   
@@ -83,6 +87,8 @@ router.get("/:id", (req, res) => {
   const leiFormatada = {
     id: lei.id.toString(),
     nome: lei.nome,
+    link: lei.link,
+    documento: lei.documento,
     temasIds: lei.temas ? lei.temas.map(id => id.toString()) : []
   };
 
@@ -138,6 +144,8 @@ router.put("/:id", upload.single("documento"), (req, res) => {
   const leiFormatada = {
     id: lei.id.toString(),
     nome: lei.nome,
+    link: lei.link,
+    documento: lei.documento,
     temasIds: lei.temas ? lei.temas.map(id => id.toString()) : []
   };
 
