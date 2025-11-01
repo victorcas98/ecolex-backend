@@ -1,13 +1,27 @@
 import { Router } from "express";
 import multer from "multer";
+import fs from "fs";
+import path from "path";
 import { getTemas } from "./temas.js";
 import { getLeis } from "./leis.js";
 
 const router = Router();
 
+// Garantir que o diretório uploads/evidencias existe
+const uploadDir = 'uploads/evidencias';
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 // Configuração do multer para anexos de evidências
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/evidencias/"),
+  destination: (req, file, cb) => {
+    // Verificar se o diretório existe antes de salvar
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
   filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
 });
 const upload = multer({ storage });
@@ -355,7 +369,7 @@ router.post("/:id/temas/:temaId/requisitos/:requisitoId/evidencias", upload.sing
   if (!projeto) return res.status(404).json({ error: "Projeto não encontrado" });
 
   const { temaId, requisitoId } = req.params;
-  const { registro } = req.body;
+  const { registro, dataValidade } = req.body;
   const anexo = req.file ? req.file.path : null;
 
   if (!registro) {
@@ -372,13 +386,12 @@ router.post("/:id/temas/:temaId/requisitos/:requisitoId/evidencias", upload.sing
     return res.status(404).json({ error: "Requisito não encontrado no tema" });
   }
 
-  // Como evidencia agora é string, vamos concatenar os registros
-  const novoRegistro = `${registro} (${new Date().toISOString()})`;
-  
-  if (requisito.evidencia) {
-    requisito.evidencia += `\n${novoRegistro}`;
-  } else {
-    requisito.evidencia = novoRegistro;
+  // Sobrescrever a evidência com o novo registro (não concatenar)
+  requisito.evidencia = registro;
+
+  // Atualizar data de validade se fornecida
+  if (dataValidade) {
+    requisito.dataValidade = dataValidade;
   }
 
   // Adicionar anexo ao array de anexos se fornecido
@@ -514,6 +527,37 @@ router.post("/:id/temas/:temaId/requisitos/:requisitoId/anexos", upload.array("a
     id: projeto.id.toString(),
     nome: projeto.nome,
     temas: projeto.temas
+  });
+});
+
+// Download de anexo específico
+router.get("/:id/temas/:temaId/requisitos/:requisitoId/anexos/:anexoIndex/download", (req, res) => {
+  const projeto = projetos.find((p) => p.id === parseInt(req.params.id));
+  if (!projeto) return res.status(404).json({ error: "Projeto não encontrado" });
+
+  const { temaId, requisitoId, anexoIndex } = req.params;
+
+  const tema = projeto.temas.find(t => t.id == temaId);
+  if (!tema) {
+    return res.status(404).json({ error: "Tema não encontrado no projeto" });
+  }
+
+  const requisito = tema.requisitos.find(r => r.id === requisitoId);
+  if (!requisito) {
+    return res.status(404).json({ error: "Requisito não encontrado no tema" });
+  }
+
+  const anexo = requisito.anexo[parseInt(anexoIndex)];
+  if (!anexo) {
+    return res.status(404).json({ error: "Anexo não encontrado" });
+  }
+
+  // Retornar o caminho completo para download
+  res.json({
+    nome: anexo.nome,
+    url: `http://localhost:3000/${anexo.caminho}`,
+    caminho: anexo.caminho,
+    data: anexo.data
   });
 });
 

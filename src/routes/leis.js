@@ -1,12 +1,26 @@
 import { Router } from "express";
 import multer from "multer";
+import fs from "fs";
+import path from "path";
 import { getTemas, updateTemaVinculacoes, updateTemaLeisVinculacoes } from "./temas.js";
 
 const router = Router();
 
-// Configuração do multaqui er
+// Garantir que o diretório uploads existe
+const uploadDir = 'uploads';
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Configuração do multer
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/"),
+  destination: (req, file, cb) => {
+    // Verificar se o diretório existe antes de salvar
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
   filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
 });
 const upload = multer({ storage });
