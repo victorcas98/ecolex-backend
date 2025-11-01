@@ -1,5 +1,5 @@
 {
-  "name": "tcc-backend",
+  "name": "ecolex-backend",
   "version": "1.0.0",
   "description": "Backend para sistema de gestão de conformidade ambiental - MVP",
   "type": "module",
