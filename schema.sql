@@ -1,4 +1,4 @@
--- Schema para TCC Backend - MVP
+-- Schema para ECOLEX Backend - MVP
 -- Execute este script no Railway Query após criar o PostgreSQL
 
 -- Tabela de projetos

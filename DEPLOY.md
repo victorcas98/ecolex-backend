@@ -45,7 +45,7 @@ git push origin main
 
 1. Clique em **"New Project"**
 2. Selecione **"Deploy from GitHub repo"**
-3. Escolha o repositório: `tcc-backend`
+3. Escolha o repositório: `ecolex-backend`
 4. Railway vai começar o deploy automaticamente
 
 ### 2.3 Aguardar Build Inicial
@@ -147,7 +147,7 @@ No serviço do **backend**, vá em **"Variables"** e adicione:
 
 1. Na aba **"Settings"** do backend
 2. Em **"Networking"**, clique em **"Generate Domain"**
-3. Railway vai gerar uma URL tipo: `https://tcc-backend-production-xxxx.up.railway.app`
+3. Railway vai gerar uma URL tipo: `https://ecolex-backend-production-xxxx.up.railway.app`
 4. **Copie essa URL!**
 
 ---
@@ -164,7 +164,7 @@ https://seu-app.railway.app/
 Deve retornar:
 ```json
 {
-  "message": "✅ Backend TCC funcionando!",
+  "message": "✅ Backend ECOLEX funcionando!",
   "version": "1.0.0",
   "baseUrl": "https://seu-app.railway.app"
 }

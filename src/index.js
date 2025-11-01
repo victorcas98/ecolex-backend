@@ -21,7 +21,7 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 // Rotas
 app.get("/", (req, res) => {
   res.json({ 
-    message: "✅ Backend TCC funcionando!", 
+    message: "✅ Backend ECOLEX funcionando!", 
     version: "1.0.0",
     baseUrl: BASE_URL
   });
