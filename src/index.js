@@ -1,24 +1,54 @@
+import 'dotenv/config';
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import path from "path";
 import projetosRoutes from "./routes/projetos.js";
 import leisRoutes from "./routes/leis.js";
 import temasRoutes from "./routes/temas.js";
 import requisitosRoutes from "./routes/requisitos.js";
 
-dotenv.config();
 const app = express();
+const PORT = process.env.PORT || 3000;
+const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+
+// Middlewares
 app.use(cors());
 app.use(express.json());
 
 // Expor a pasta uploads como estático para download de arquivos
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
+// Rotas
+app.get("/", (req, res) => {
+  res.json({ 
+    message: "✅ Backend TCC funcionando!", 
+    version: "1.0.0",
+    baseUrl: BASE_URL
+  });
+});
+
 app.use("/api/projetos", projetosRoutes);
 app.use("/api/leis", leisRoutes);
 app.use("/api/temas", temasRoutes);
 app.use("/api/requisitos", requisitosRoutes);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, ()=> console.log(`API rodando na porta ${PORT}`));
+// Middleware de erro global
+app.use((err, req, res, next) => {
+  console.error('❌ Erro:', err);
+  res.status(500).json({ 
+    error: process.env.NODE_ENV === 'production' 
+      ? 'Erro interno do servidor' 
+      : err.message 
+  });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: 'Rota não encontrada' });
+});
+
+app.listen(PORT, () => {
+  console.log(`\n🚀 Servidor rodando em ${BASE_URL}`);
+  console.log(`📊 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🗄️  Database: ${process.env.DATABASE_URL ? 'Configurado' : 'Não configurado'}\n`);
+});
