@@ -1,9 +1,9 @@
-import pg from 'pg';
+import pg from "pg";
 const { Pool } = pg;
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
 });
 
 // 🔍 Teste de conexão detalhado ao iniciar
@@ -42,10 +42,5 @@ pool.query('SELECT current_database(), version(), inet_server_addr() as server_i
     console.log('========================================');
     console.log('');
   });
-
-pool.on('error', (err) => {
-  console.error('❌ Erro inesperado no pool de conexão:', err);
-  process.exit(-1);
-});
 
 export default pool;
