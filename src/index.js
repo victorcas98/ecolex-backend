@@ -2,6 +2,10 @@ import 'dotenv/config';
 import express from "express";
 import cors from "cors";
 import path from "path";
+
+// 🔥 Importar db.js para executar o teste de conexão ao iniciar
+import "./config/db.js";
+
 import projetosRoutes from "./routes/projetos.js";
 import leisRoutes from "./routes/leis.js";
 import temasRoutes from "./routes/temas.js";
