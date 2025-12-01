@@ -3,8 +3,18 @@ import pool from "../config/db.js";
 
 const router = Router();
 
-// Criar requisito dentro de um projeto (usado internamente)
-// Esta rota não é mais usada diretamente - requisitos são criados junto com projetos
+// Listar TODOS os requisitos
+router.get("/", async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM requisitos ORDER BY created_at DESC'
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Erro ao listar requisitos:', error);
+    res.status(500).json({ error: 'Erro ao listar requisitos' });
+  }
+});
 
 // Listar requisitos de um tema específico dentro de um projeto
 router.get("/tema/:temaProjetoId", async (req, res) => {
@@ -43,20 +53,6 @@ router.get("/tema/:temaProjetoId", async (req, res) => {
     );
 
     res.json(requisitos);
-  } catch (error) {
-    console.error('Erro ao listar requisitos:', error);
-    res.status(500).json({ error: 'Erro ao listar requisitos' });
-  }
-});
-
-// Listar todos os requisitos
-router.get("/", async (req, res) => {
-  try {
-    const result = await pool.query(
-      'SELECT * FROM requisitos ORDER BY created_at DESC'
-    );
-
-    res.json(result.rows);
   } catch (error) {
     console.error('Erro ao listar requisitos:', error);
     res.status(500).json({ error: 'Erro ao listar requisitos' });
