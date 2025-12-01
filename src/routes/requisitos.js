@@ -3,6 +3,49 @@ import pool from "../config/db.js";
 
 const router = Router();
 
+// Criar requisito
+router.post("/", async (req, res) => {
+  try {
+    const { id, tema_projeto_id, nome, status, evidencia, dataValidade, leisIds } = req.body;
+
+    if (!id || !tema_projeto_id || !nome) {
+      return res.status(400).json({ 
+        error: "ID, tema_projeto_id e nome são obrigatórios" 
+      });
+    }
+
+    // Inserir requisito
+    const result = await pool.query(
+      'INSERT INTO requisitos (id, tema_projeto_id, nome, status, evidencia, data_validade) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [id, tema_projeto_id, nome, status || 'pendente', evidencia || '', dataValidade || null]
+    );
+
+    const novoRequisito = result.rows[0];
+
+    // Vincular leis se fornecidas
+    if (leisIds && Array.isArray(leisIds)) {
+      for (const leiId of leisIds) {
+        await pool.query(
+          'INSERT INTO leis_requisito (requisito_id, lei_id) VALUES ($1, $2)',
+          [id, parseInt(leiId)]
+        );
+      }
+    }
+
+    res.status(201).json({
+      id: novoRequisito.id,
+      nome: novoRequisito.nome,
+      status: novoRequisito.status,
+      evidencia: novoRequisito.evidencia,
+      leisIds: leisIds || [],
+      dataValidade: novoRequisito.data_validade
+    });
+  } catch (error) {
+    console.error('Erro ao criar requisito:', error);
+    res.status(500).json({ error: 'Erro ao criar requisito' });
+  }
+});
+
 // Listar TODOS os requisitos
 router.get("/", async (req, res) => {
   try {
