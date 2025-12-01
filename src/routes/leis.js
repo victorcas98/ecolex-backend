@@ -143,6 +143,86 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+// Atualizar lei
+router.put("/:id", upload.single("documento"), async (req, res) => {
+  try {
+    const leiId = parseInt(req.params.id);
+    const { nome, link, temas: temasIds } = req.body;
+
+    // Verificar se a lei existe
+    const leiExistente = await pool.query(
+      'SELECT * FROM leis WHERE id = $1',
+      [leiId]
+    );
+
+    if (leiExistente.rows.length === 0) {
+      return res.status(404).json({ error: "Lei não encontrada" });
+    }
+
+    const lei = leiExistente.rows[0];
+
+    // Atualizar campos básicos
+    const documento = req.file ? req.file.path : lei.documento;
+
+    await pool.query(
+      'UPDATE leis SET nome = $1, link = $2, documento = $3 WHERE id = $4',
+      [nome || lei.nome, link || lei.link, documento, leiId]
+    );
+
+    // Se novos temas foram fornecidos, atualizar vinculações
+    if (temasIds) {
+      const temasArray = JSON.parse(temasIds);
+
+      // Validar se todos os temas existem
+      for (const temaId of temasArray) {
+        const tema = await pool.query(
+          'SELECT id FROM temas WHERE id = $1',
+          [parseInt(temaId)]
+        );
+        
+        if (tema.rows.length === 0) {
+          return res.status(400).json({ 
+            error: `Tema não encontrado: ${temaId}` 
+          });
+        }
+      }
+
+      // Remover vinculações antigas
+      await pool.query('DELETE FROM leis_temas WHERE lei_id = $1', [leiId]);
+
+      // Adicionar novas vinculações
+      for (const temaId of temasArray) {
+        await pool.query(
+          'INSERT INTO leis_temas (lei_id, tema_id) VALUES ($1, $2)',
+          [leiId, parseInt(temaId)]
+        );
+      }
+    }
+
+    // Buscar lei atualizada
+    const leiAtualizada = await pool.query(
+      'SELECT * FROM leis WHERE id = $1',
+      [leiId]
+    );
+
+    const temas = await pool.query(
+      'SELECT tema_id FROM leis_temas WHERE lei_id = $1',
+      [leiId]
+    );
+
+    res.json({
+      id: leiAtualizada.rows[0].id.toString(),
+      nome: leiAtualizada.rows[0].nome,
+      link: leiAtualizada.rows[0].link,
+      documento: leiAtualizada.rows[0].documento,
+      temasIds: temas.rows.map(t => t.tema_id.toString())
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar lei:', error);
+    res.status(500).json({ error: 'Erro ao atualizar lei' });
+  }
+});
+
 // Deletar lei
 router.delete("/:id", async (req, res) => {
   try {

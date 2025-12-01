@@ -1,140 +1,149 @@
 import { Router } from "express";
-import { getTemas, updateTemaVinculacoes, updateTemaRequisitosVinculacoes } from "./temas.js";
-import { getLeis } from "./leis.js";
+import pool from "../config/db.js";
 
 const router = Router();
 
-// "Banco" em memória
-let requisitos = [];
+// Criar requisito dentro de um projeto (usado internamente)
+// Esta rota não é mais usada diretamente - requisitos são criados junto com projetos
 
-// Criar requisito (OBRIGATÓRIO vincular a um tema)
-router.post("/", (req, res) => {
-  const { nome, temaId } = req.body;
+// Listar requisitos de um tema específico dentro de um projeto
+router.get("/tema/:temaProjetoId", async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM requisitos WHERE tema_projeto_id = $1',
+      [parseInt(req.params.temaProjetoId)]
+    );
 
-  if (!temaId) {
-    return res.status(400).json({ 
-      error: "ID do tema é obrigatório" 
-    });
+    const requisitos = await Promise.all(
+      result.rows.map(async (req) => {
+        const leis = await pool.query(
+          'SELECT lei_id FROM leis_requisito WHERE requisito_id = $1',
+          [req.id]
+        );
+
+        const anexos = await pool.query(
+          'SELECT * FROM anexos WHERE requisito_id = $1',
+          [req.id]
+        );
+
+        return {
+          id: req.id,
+          nome: req.nome,
+          status: req.status,
+          evidencia: req.evidencia || '',
+          anexo: anexos.rows.map(a => ({
+            nome: a.nome,
+            caminho: a.caminho,
+            data: a.data
+          })),
+          leisIds: leis.rows.map(l => l.lei_id.toString()),
+          dataValidade: req.data_validade
+        };
+      })
+    );
+
+    res.json(requisitos);
+  } catch (error) {
+    console.error('Erro ao listar requisitos:', error);
+    res.status(500).json({ error: 'Erro ao listar requisitos' });
   }
-
-  const temas = getTemas();
-  const tema = temas.find(t => t.id === parseInt(temaId));
-  
-  if (!tema) {
-    return res.status(400).json({ 
-      error: "Tema não encontrado" 
-    });
-  }
-
-  const novoRequisito = {
-    id: requisitos.length + 1,
-    nome,
-    temaId: parseInt(temaId)
-  };
-
-  requisitos.push(novoRequisito);
-
-  // Atualizar vinculações no tema
-  updateTemaRequisitosVinculacoes(temaId, novoRequisito.id);
-
-  // Adicionar o ID do requisito ao tema vinculado
-  tema.requisitosIds.push(novoRequisito.id);
-
-  // Retornar no formato correto
-  const requisitoFormatado = {
-    id: novoRequisito.id.toString(),
-    nome: novoRequisito.nome,
-    temaId: novoRequisito.temaId.toString()
-  };
-
-  res.status(201).json(requisitoFormatado);
-});
-
-// Listar requisitos de um tema específico
-router.get("/tema/:temaId", (req, res) => {
-  const { temaId } = req.params;
-  const requisitosDoTema = requisitos.filter((r) => r.temaId === parseInt(temaId));
-  res.json(requisitosDoTema);
 });
 
 // Listar todos os requisitos
-router.get("/", (req, res) => {
-  const requisitosFormatados = requisitos.map(req => ({
-    id: req.id.toString(),
-    nome: req.nome,
-    temaId: req.temaId.toString()
-  }));
-  
-  res.json(requisitosFormatados);
+router.get("/", async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM requisitos ORDER BY created_at DESC'
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Erro ao listar requisitos:', error);
+    res.status(500).json({ error: 'Erro ao listar requisitos' });
+  }
 });
 
 // Buscar requisito por ID
-router.get("/:id", (req, res) => {
-  const requisito = requisitos.find((r) => r.id === parseInt(req.params.id));
-  if (!requisito) return res.status(404).json({ error: "Requisito não encontrado" });
+router.get("/:id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM requisitos WHERE id = $1',
+      [req.params.id]
+    );
 
-  const requisitoFormatado = {
-    id: requisito.id.toString(),
-    nome: requisito.nome,
-    temaId: requisito.temaId.toString()
-  };
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Requisito não encontrado" });
+    }
 
-  res.json(requisitoFormatado);
+    const req = result.rows[0];
+
+    const leis = await pool.query(
+      'SELECT lei_id FROM leis_requisito WHERE requisito_id = $1',
+      [req.id]
+    );
+
+    const anexos = await pool.query(
+      'SELECT * FROM anexos WHERE requisito_id = $1',
+      [req.id]
+    );
+
+    res.json({
+      id: req.id,
+      nome: req.nome,
+      status: req.status,
+      evidencia: req.evidencia || '',
+      anexo: anexos.rows.map(a => ({
+        nome: a.nome,
+        caminho: a.caminho,
+        data: a.data
+      })),
+      leisIds: leis.rows.map(l => l.lei_id.toString()),
+      dataValidade: req.data_validade
+    });
+  } catch (error) {
+    console.error('Erro ao buscar requisito:', error);
+    res.status(500).json({ error: 'Erro ao buscar requisito' });
+  }
 });
 
 // Atualizar requisito
-router.put("/:id", (req, res) => {
-  const requisito = requisitos.find((r) => r.id === parseInt(req.params.id));
-  if (!requisito) return res.status(404).json({ error: "Requisito não encontrado" });
+router.put("/:id", async (req, res) => {
+  try {
+    const { nome, status, evidencia, dataValidade } = req.body;
 
-  const { nome, temaId } = req.body;
+    const result = await pool.query(
+      'UPDATE requisitos SET nome = COALESCE($1, nome), status = COALESCE($2, status), evidencia = COALESCE($3, evidencia), data_validade = COALESCE($4, data_validade) WHERE id = $5 RETURNING *',
+      [nome, status, evidencia, dataValidade, req.params.id]
+    );
 
-  requisito.nome = nome || requisito.nome;
-
-  // Se tema foi alterado, validar e atualizar vinculações
-  if (temaId && parseInt(temaId) !== requisito.temaId) {
-    const temas = getTemas();
-    const novoTema = temas.find(t => t.id === parseInt(temaId));
-    
-    if (!novoTema) {
-      return res.status(400).json({ error: "Novo tema não encontrado" });
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Requisito não encontrado" });
     }
 
-    const temaAntigoId = requisito.temaId;
-    requisito.temaId = parseInt(temaId);
-
-    // Atualizar vinculações nos temas
-    updateTemaVinculacoes(temaAntigoId, getLeis(), requisitos);
-    updateTemaVinculacoes(parseInt(temaId), getLeis(), requisitos);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Erro ao atualizar requisito:', error);
+    res.status(500).json({ error: 'Erro ao atualizar requisito' });
   }
-
-  // Retornar no formato correto
-  const requisitoFormatado = {
-    id: requisito.id.toString(),
-    nome: requisito.nome,
-    temaId: requisito.temaId.toString()
-  };
-
-  res.json(requisitoFormatado);
 });
 
 // Deletar requisito
-router.delete("/:id", (req, res) => {
-  const requisitoId = parseInt(req.params.id);
-  const requisito = requisitos.find(r => r.id === requisitoId);
-  
-  if (requisito) {
-    const temaId = requisito.temaId;
-    requisitos = requisitos.filter((r) => r.id !== requisitoId);
-    
-    // Atualizar vinculações no tema
-    updateTemaVinculacoes(temaId, getLeis(), requisitos);
-  }
-  
-  res.status(204).send();
-});
+router.delete("/:id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      'DELETE FROM requisitos WHERE id = $1 RETURNING *',
+      [req.params.id]
+    );
 
-// Função exportada para obter requisitos (usada por outros módulos)
-export const getRequisitos = () => requisitos;
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Requisito não encontrado" });
+    }
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Erro ao deletar requisito:', error);
+    res.status(500).json({ error: 'Erro ao deletar requisito' });
+  }
+});
 
 export default router;
