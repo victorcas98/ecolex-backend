@@ -6,38 +6,31 @@ const router = Router();
 // Criar requisito
 router.post("/", async (req, res) => {
   try {
-    const { id, tema_projeto_id, nome, status, evidencia, dataValidade, leisIds } = req.body;
+    const { nome, temaId } = req.body;
 
-    if (!id || !tema_projeto_id || !nome) {
+    if (!nome || !temaId) {
       return res.status(400).json({ 
-        error: "ID, tema_projeto_id e nome são obrigatórios" 
+        error: "nome e temaId são obrigatórios" 
       });
     }
 
+    // Gerar ID único para o requisito
+    const id = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
     // Inserir requisito
     const result = await pool.query(
-      'INSERT INTO requisitos (id, tema_projeto_id, nome, status, evidencia, data_validade) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [id, tema_projeto_id, nome, status || 'pendente', evidencia || '', dataValidade || null]
+      'INSERT INTO requisitos (id, tema_projeto_id, nome, status, evidencia) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [id, parseInt(temaId), nome, 'pendente', '']
     );
 
     const novoRequisito = result.rows[0];
-
-    // Vincular leis se fornecidas
-    if (leisIds && Array.isArray(leisIds)) {
-      for (const leiId of leisIds) {
-        await pool.query(
-          'INSERT INTO leis_requisito (requisito_id, lei_id) VALUES ($1, $2)',
-          [id, parseInt(leiId)]
-        );
-      }
-    }
 
     res.status(201).json({
       id: novoRequisito.id,
       nome: novoRequisito.nome,
       status: novoRequisito.status,
       evidencia: novoRequisito.evidencia,
-      leisIds: leisIds || [],
+      leisIds: [],
       dataValidade: novoRequisito.data_validade
     });
   } catch (error) {
