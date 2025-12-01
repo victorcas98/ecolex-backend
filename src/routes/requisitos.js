@@ -6,7 +6,7 @@ const router = Router();
 // Criar requisito
 router.post("/", async (req, res) => {
   try {
-    const { nome, temaId } = req.body;
+    const { nome, temaId, leisIds } = req.body;
 
     if (!nome || !temaId) {
       return res.status(400).json({ 
@@ -25,12 +25,22 @@ router.post("/", async (req, res) => {
 
     const novoRequisito = result.rows[0];
 
+    // Vincular leis se fornecidas
+    if (leisIds && Array.isArray(leisIds)) {
+      for (const leiId of leisIds) {
+        await pool.query(
+          'INSERT INTO leis_requisito (requisito_id, lei_id) VALUES ($1, $2)',
+          [id, parseInt(leiId)]
+        );
+      }
+    }
+
     res.status(201).json({
       id: novoRequisito.id,
       nome: novoRequisito.nome,
       status: novoRequisito.status,
       evidencia: novoRequisito.evidencia,
-      leisIds: [],
+      leisIds: leisIds || [],
       dataValidade: novoRequisito.data_validade
     });
   } catch (error) {

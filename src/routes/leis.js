@@ -26,16 +26,28 @@ const upload = multer({ storage });
 // Criar lei
 router.post("/", upload.single("documento"), async (req, res) => {
   try {
-    const { nome, link, temas: temasIds } = req.body;
+    const { nome, link, temas, temasIds } = req.body;
     const documento = req.file ? req.file.path : null;
 
-    if (!temasIds || !Array.isArray(JSON.parse(temasIds)) || JSON.parse(temasIds).length === 0) {
+    // Aceitar tanto 'temas' (FormData stringify) quanto 'temasIds' (JSON)
+    const temasIdsRaw = temas || temasIds;
+
+    if (!temasIdsRaw) {
       return res.status(400).json({ 
         error: "Pelo menos um tema deve ser vinculado à lei" 
       });
     }
 
-    const temasArray = JSON.parse(temasIds);
+    // Parse se for string, senão usa direto
+    const temasArray = typeof temasIdsRaw === 'string' 
+      ? JSON.parse(temasIdsRaw) 
+      : temasIdsRaw;
+
+    if (!Array.isArray(temasArray) || temasArray.length === 0) {
+      return res.status(400).json({ 
+        error: "Pelo menos um tema deve ser vinculado à lei" 
+      });
+    }
 
     // Validar se todos os temas existem
     for (const temaId of temasArray) {

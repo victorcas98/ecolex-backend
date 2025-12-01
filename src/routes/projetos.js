@@ -215,4 +215,108 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// Salvar evidência (com upload de arquivos)
+router.post("/:projetoId/temas/:temaId/requisitos/:requisitoId/evidencias", upload.array("anexo", 3), async (req, res) => {
+  try {
+    const { projetoId, temaId, requisitoId } = req.params;
+    const { registro, dataValidade } = req.body;
+
+    // Atualizar requisito com evidência
+    const result = await pool.query(
+      'UPDATE requisitos SET evidencia = $1, data_validade = $2 WHERE id = $3 AND tema_projeto_id = $4 RETURNING *',
+      [registro, dataValidade || null, requisitoId, parseInt(temaId)]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Requisito não encontrado" });
+    }
+
+    // Salvar anexos
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        await pool.query(
+          'INSERT INTO anexos (requisito_id, nome, caminho) VALUES ($1, $2, $3)',
+          [requisitoId, file.originalname, file.path]
+        );
+      }
+    }
+
+    res.json({ message: "Evidência salva com sucesso" });
+  } catch (error) {
+    console.error('Erro ao salvar evidência:', error);
+    res.status(500).json({ error: 'Erro ao salvar evidência' });
+  }
+});
+
+// Atualizar requisito do projeto
+router.put("/:projetoId/temas/:temaId/requisitos/:requisitoId", async (req, res) => {
+  try {
+    const { requisitoId, temaId } = req.params;
+    const { status, leisIds, dataValidade } = req.body;
+
+    // Atualizar requisito
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (status) {
+      updates.push(`status = $${paramCount++}`);
+      values.push(status);
+    }
+
+    if (dataValidade !== undefined) {
+      updates.push(`data_validade = $${paramCount++}`);
+      values.push(dataValidade);
+    }
+
+    if (updates.length > 0) {
+      values.push(requisitoId, parseInt(temaId));
+      await pool.query(
+        `UPDATE requisitos SET ${updates.join(', ')} WHERE id = $${paramCount} AND tema_projeto_id = $${paramCount + 1}`,
+        values
+      );
+    }
+
+    // Atualizar leis vinculadas
+    if (leisIds && Array.isArray(leisIds)) {
+      // Remover vinculações antigas
+      await pool.query('DELETE FROM leis_requisito WHERE requisito_id = $1', [requisitoId]);
+
+      // Adicionar novas
+      for (const leiId of leisIds) {
+        await pool.query(
+          'INSERT INTO leis_requisito (requisito_id, lei_id) VALUES ($1, $2)',
+          [requisitoId, parseInt(leiId)]
+        );
+      }
+    }
+
+    res.json({ message: "Requisito atualizado com sucesso" });
+  } catch (error) {
+    console.error('Erro ao atualizar requisito:', error);
+    res.status(500).json({ error: 'Erro ao atualizar requisito' });
+  }
+});
+
+// Remover requisito do projeto
+router.delete("/:projetoId/temas/:temaId/requisitos/:requisitoId", async (req, res) => {
+  try {
+    const { requisitoId, temaId } = req.params;
+
+    const result = await pool.query(
+      'DELETE FROM requisitos WHERE id = $1 AND tema_projeto_id = $2 RETURNING *',
+      [requisitoId, parseInt(temaId)]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Requisito não encontrado" });
+    }
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Erro ao remover requisito:', error);
+    res.status(500).json({ error: 'Erro ao remover requisito' });
+  }
+});
+
 export default router;

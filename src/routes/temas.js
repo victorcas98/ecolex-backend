@@ -100,6 +100,54 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+// Atualizar tema
+router.put("/:id", async (req, res) => {
+  try {
+    const { nome } = req.body;
+
+    if (!nome) {
+      return res.status(400).json({ error: "Nome é obrigatório" });
+    }
+
+    // Verificar duplicidade
+    const existente = await pool.query(
+      'SELECT id FROM temas WHERE nome = $1 AND id != $2',
+      [nome, parseInt(req.params.id)]
+    );
+
+    if (existente.rows.length > 0) {
+      return res.status(400).json({ error: "Nome de tema já existe" });
+    }
+
+    const result = await pool.query(
+      'UPDATE temas SET nome = $1 WHERE id = $2 RETURNING *',
+      [nome, parseInt(req.params.id)]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Tema não encontrado" });
+    }
+
+    const tema = result.rows[0];
+
+    // Buscar leis vinculadas
+    const leis = await pool.query(
+      'SELECT lei_id FROM leis_temas WHERE tema_id = $1',
+      [tema.id]
+    );
+
+    res.json({
+      id: tema.id.toString(),
+      nome: tema.nome,
+      requisitosIds: [],
+      leisIds: leis.rows.map(l => l.lei_id.toString())
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar tema:', error);
+    res.status(500).json({ error: 'Erro ao atualizar tema' });
+  }
+});
+
 // Deletar tema
 router.delete("/:id", async (req, res) => {
   try {
