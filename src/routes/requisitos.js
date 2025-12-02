@@ -21,54 +21,48 @@ async function resolveTemaProjetoId(temaId, projetoId, { createIfMissing = false
     return { ok: false, message: "projetoId inválido" };
   }
 
-  const temaRow = await pool.query('SELECT id, nome FROM temas WHERE id = $1', [temaIdInt]);
-
-  if (temaRow.rows.length > 0) {
-    const params = [temaIdInt];
-    let query = 'SELECT id FROM temas_projeto WHERE tema_id = $1';
-
-    if (parsedProjetoId !== null) {
-      params.push(parsedProjetoId);
-      query += ' AND projeto_id = $2';
-    } else {
-      query += ' AND projeto_id IS NULL';
-    }
-
-    query += ' LIMIT 1';
-
-    const existente = await pool.query(query, params);
-    if (existente.rows.length === 1) {
-      return { ok: true, value: existente.rows[0].id };
-    }
-
-    if (!createIfMissing) {
-      return { ok: false, message: "Tema do projeto não encontrado" };
-    }
-
-    const novoTemaProjeto = await pool.query(
-      'INSERT INTO temas_projeto (projeto_id, tema_id, nome) VALUES ($1, $2, $3) RETURNING id',
-      [parsedProjetoId, temaIdInt, temaRow.rows[0].nome]
-    );
-
-    return { ok: true, value: novoTemaProjeto.rows[0].id };
-  }
-
-  const temaProjetoDireto = await pool.query(
+  // 1) tentar interpretar como id direto de temas_projeto
+  const direto = await pool.query(
     'SELECT id, projeto_id FROM temas_projeto WHERE id = $1',
     [temaIdInt]
   );
 
-  if (temaProjetoDireto.rows.length === 0) {
+  if (direto.rows.length === 1) {
+    if (parsedProjetoId !== null && direto.rows[0].projeto_id !== parsedProjetoId) {
+      return { ok: false, message: "Tema não pertence ao projeto informado" };
+    }
+    return { ok: true, value: direto.rows[0].id };
+  }
+
+  // 2) interpretar como id da tabela temas
+  const temaRow = await pool.query('SELECT id, nome FROM temas WHERE id = $1', [temaIdInt]);
+  if (temaRow.rows.length === 0) {
+    return { ok: false, message: "Tema não encontrado" };
+  }
+
+  const params = [temaRow.rows[0].id];
+  let query = 'SELECT id FROM temas_projeto WHERE tema_id = $1';
+  if (parsedProjetoId !== null) {
+    params.push(parsedProjetoId);
+    query += ' AND projeto_id = $2';
+  }
+  query += ' ORDER BY created_at DESC LIMIT 1';
+
+  const existente = await pool.query(query, params);
+  if (existente.rows.length === 1) {
+    return { ok: true, value: existente.rows[0].id };
+  }
+
+  if (!createIfMissing) {
     return { ok: false, message: "Tema do projeto não encontrado" };
   }
 
-  const temaProjeto = temaProjetoDireto.rows[0];
+  const novoTemaProjeto = await pool.query(
+    'INSERT INTO temas_projeto (projeto_id, tema_id, nome) VALUES ($1, $2, $3) RETURNING id',
+    [parsedProjetoId, temaRow.rows[0].id, temaRow.rows[0].nome]
+  );
 
-  if (parsedProjetoId !== null && temaProjeto.projeto_id !== parsedProjetoId) {
-    return { ok: false, message: "Tema não pertence ao projeto informado" };
-  }
-
-  return { ok: true, value: temaProjeto.id };
+  return { ok: true, value: novoTemaProjeto.rows[0].id };
 }
 
 // Criar requisito
@@ -141,10 +135,10 @@ router.get("/tema/:temaProjetoId", async (req, res) => {
     const temaProjeto = await resolveTemaProjetoId(
       req.params.temaProjetoId,
       req.query.projetoId,
-      { createIfMissing: true }
+      { createIfMissing: false }
     );
     if (!temaProjeto.ok) {
-      if (temaProjeto.message === "Tema do projeto não encontrado") {
+      if (temaProjeto.message === "Tema do projeto não encontrado" || temaProjeto.message === "Tema não encontrado") {
         return res.json([]);
       }
       return res.status(400).json({ error: temaProjeto.message });
