@@ -3,6 +3,8 @@ import pool from "../config/db.js";
 
 const router = Router();
 
+console.log('🔄 [REQUISITOS] Versão carregada: 2024-12-02 - createIfMissing habilitado');
+
 async function resolveTemaProjetoId(temaId, projetoId, { createIfMissing = false } = {}) {
   console.log('🔍 [resolveTemaProjetoId] Iniciando resolução:', { temaId, projetoId, createIfMissing });
   
