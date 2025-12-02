@@ -27,8 +27,10 @@ const upload = multer({ storage });
 router.post("/", async (req, res) => {
   try {
     const { nome, temas } = req.body;
+    console.log('📝 [POST /projetos] Recebendo requisição:', { nome, temas: temas?.length });
 
     if (!nome) {
+      console.log('❌ [POST /projetos] Nome do projeto faltando');
       return res.status(400).json({ 
         error: "Nome do projeto é obrigatório" 
       });
@@ -59,30 +61,38 @@ router.post("/", async (req, res) => {
     const novoProjeto = resultProjeto.rows[0];
 
     // Inserir temas e requisitos
+    console.log('📋 [POST /projetos] Inserindo temas...');
     for (const tema of temas) {
+      console.log('🔹 [POST /projetos] Inserindo tema:', tema.nome);
       const resultTema = await pool.query(
         'INSERT INTO temas_projeto (projeto_id, tema_id, nome) VALUES ($1, $2, $3) RETURNING *',
         [novoProjeto.id, Date.now() + Math.random(), tema.nome]
       );
+      console.log('✓ [POST /projetos] Tema criado com id:', resultTema.rows[0].id);
 
       const temaProjeto = resultTema.rows[0];
 
       // Inserir requisitos do tema
       if (tema.requisitos && Array.isArray(tema.requisitos)) {
+        console.log('📄 [POST /projetos] Inserindo', tema.requisitos.length, 'requisitos...');
         for (const req of tema.requisitos) {
+          console.log('🔸 [POST /projetos] Inserindo requisito:', req.nome, 'com id:', req.id);
           await pool.query(
             'INSERT INTO requisitos (id, tema_projeto_id, nome, status, evidencia, data_validade) VALUES ($1, $2, $3, $4, $5, $6)',
             [req.id, temaProjeto.id, req.nome, req.status || 'pendente', req.evidencia || '', req.dataValidade || null]
           );
+          console.log('✓ [POST /projetos] Requisito inserido');
 
           // Vincular leis ao requisito
           if (req.leisIds && Array.isArray(req.leisIds)) {
+            console.log('🔗 [POST /projetos] Vinculando leis:', req.leisIds);
             for (const leiId of req.leisIds) {
               await pool.query(
                 'INSERT INTO leis_requisito (requisito_id, lei_id) VALUES ($1, $2)',
                 [req.id, parseInt(leiId)]
               );
             }
+            console.log('✓ [POST /projetos] Leis vinculadas');
           }
         }
       }
@@ -91,10 +101,12 @@ router.post("/", async (req, res) => {
     // Buscar projeto completo
     const projetoCompleto = await buscarProjetoCompleto(novoProjeto.id);
 
+    console.log('✅ [POST /projetos] Projeto criado com sucesso!');
     res.status(201).json(projetoCompleto);
   } catch (error) {
-    console.error('Erro ao criar projeto:', error);
-    res.status(500).json({ error: 'Erro ao criar projeto' });
+    console.error('❌ [POST /projetos] Erro ao criar projeto:', error.message);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({ error: 'Erro ao criar projeto', details: error.message });
   }
 });
 
