@@ -3,49 +3,72 @@ import pool from "../config/db.js";
 
 const router = Router();
 
-async function resolveTemaProjetoId(temaId, projetoId) {
-  const parsedTemaId = parseInt(temaId, 10);
+async function resolveTemaProjetoId(temaId, projetoId, { createIfMissing = false } = {}) {
+  if (temaId === undefined || temaId === null || temaId === '') {
+    return { ok: false, message: "temaId é obrigatório" };
+  }
+
+  const temaIdInt = parseInt(temaId, 10);
+  if (Number.isNaN(temaIdInt)) {
+    return { ok: false, message: "temaId inválido" };
+  }
+
   const parsedProjetoId = projetoId !== undefined && projetoId !== null && projetoId !== ''
     ? parseInt(projetoId, 10)
     : null;
-
-  if (Number.isNaN(parsedTemaId)) {
-    return { ok: false, message: "temaId inválido" };
-  }
 
   if (parsedProjetoId !== null && Number.isNaN(parsedProjetoId)) {
     return { ok: false, message: "projetoId inválido" };
   }
 
-  const paramsById = [parsedTemaId];
-  let queryById = 'SELECT id FROM temas_projeto WHERE id = $1';
-  if (parsedProjetoId !== null) {
-    paramsById.push(parsedProjetoId);
-    queryById += ' AND projeto_id = $2';
+  const temaRow = await pool.query('SELECT id, nome FROM temas WHERE id = $1', [temaIdInt]);
+
+  if (temaRow.rows.length > 0) {
+    const params = [temaIdInt];
+    let query = 'SELECT id FROM temas_projeto WHERE tema_id = $1';
+
+    if (parsedProjetoId !== null) {
+      params.push(parsedProjetoId);
+      query += ' AND projeto_id = $2';
+    } else {
+      query += ' AND projeto_id IS NULL';
+    }
+
+    query += ' LIMIT 1';
+
+    const existente = await pool.query(query, params);
+    if (existente.rows.length === 1) {
+      return { ok: true, value: existente.rows[0].id };
+    }
+
+    if (!createIfMissing) {
+      return { ok: false, message: "Tema do projeto não encontrado" };
+    }
+
+    const novoTemaProjeto = await pool.query(
+      'INSERT INTO temas_projeto (projeto_id, tema_id, nome) VALUES ($1, $2, $3) RETURNING id',
+      [parsedProjetoId, temaIdInt, temaRow.rows[0].nome]
+    );
+
+    return { ok: true, value: novoTemaProjeto.rows[0].id };
   }
 
-  const byId = await pool.query(queryById, paramsById);
-  if (byId.rows.length === 1) {
-    return { ok: true, value: byId.rows[0].id };
+  const temaProjetoDireto = await pool.query(
+    'SELECT id, projeto_id FROM temas_projeto WHERE id = $1',
+    [temaIdInt]
+  );
+
+  if (temaProjetoDireto.rows.length === 0) {
+    return { ok: false, message: "Tema do projeto não encontrado" };
   }
 
-  const paramsByTema = [parsedTemaId];
-  let queryByTema = 'SELECT id FROM temas_projeto WHERE tema_id = $1';
-  if (parsedProjetoId !== null) {
-    paramsByTema.push(parsedProjetoId);
-    queryByTema += ' AND projeto_id = $2';
+  const temaProjeto = temaProjetoDireto.rows[0];
+
+  if (parsedProjetoId !== null && temaProjeto.projeto_id !== parsedProjetoId) {
+    return { ok: false, message: "Tema não pertence ao projeto informado" };
   }
 
-  const byTema = await pool.query(queryByTema, paramsByTema);
-  if (byTema.rows.length === 1) {
-    return { ok: true, value: byTema.rows[0].id };
-  }
-
-  if (byTema.rows.length > 1) {
-    return { ok: false, message: "Mais de um tema de projeto corresponde a este temaId; informe o tema_projeto_id ou o projetoId." };
-  }
-
-  return { ok: false, message: "Tema do projeto não encontrado" };
+  return { ok: true, value: temaProjeto.id };
 }
 
 // Criar requisito
@@ -59,7 +82,7 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const temaProjeto = await resolveTemaProjetoId(temaId, projetoId);
+    const temaProjeto = await resolveTemaProjetoId(temaId, projetoId, { createIfMissing: true });
     if (!temaProjeto.ok) {
       return res.status(400).json({ error: temaProjeto.message });
     }
@@ -115,8 +138,15 @@ router.get("/", async (req, res) => {
 // Listar requisitos de um tema específico dentro de um projeto
 router.get("/tema/:temaProjetoId", async (req, res) => {
   try {
-    const temaProjeto = await resolveTemaProjetoId(req.params.temaProjetoId, req.query.projetoId);
+    const temaProjeto = await resolveTemaProjetoId(
+      req.params.temaProjetoId,
+      req.query.projetoId,
+      { createIfMissing: true }
+    );
     if (!temaProjeto.ok) {
+      if (temaProjeto.message === "Tema do projeto não encontrado") {
+        return res.json([]);
+      }
       return res.status(400).json({ error: temaProjeto.message });
     }
 
