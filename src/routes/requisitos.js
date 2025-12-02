@@ -3,15 +3,65 @@ import pool from "../config/db.js";
 
 const router = Router();
 
+async function resolveTemaProjetoId(temaId, projetoId) {
+  const parsedTemaId = parseInt(temaId, 10);
+  const parsedProjetoId = projetoId !== undefined && projetoId !== null && projetoId !== ''
+    ? parseInt(projetoId, 10)
+    : null;
+
+  if (Number.isNaN(parsedTemaId)) {
+    return { ok: false, message: "temaId inválido" };
+  }
+
+  if (parsedProjetoId !== null && Number.isNaN(parsedProjetoId)) {
+    return { ok: false, message: "projetoId inválido" };
+  }
+
+  const paramsById = [parsedTemaId];
+  let queryById = 'SELECT id FROM temas_projeto WHERE id = $1';
+  if (parsedProjetoId !== null) {
+    paramsById.push(parsedProjetoId);
+    queryById += ' AND projeto_id = $2';
+  }
+
+  const byId = await pool.query(queryById, paramsById);
+  if (byId.rows.length === 1) {
+    return { ok: true, value: byId.rows[0].id };
+  }
+
+  const paramsByTema = [parsedTemaId];
+  let queryByTema = 'SELECT id FROM temas_projeto WHERE tema_id = $1';
+  if (parsedProjetoId !== null) {
+    paramsByTema.push(parsedProjetoId);
+    queryByTema += ' AND projeto_id = $2';
+  }
+
+  const byTema = await pool.query(queryByTema, paramsByTema);
+  if (byTema.rows.length === 1) {
+    return { ok: true, value: byTema.rows[0].id };
+  }
+
+  if (byTema.rows.length > 1) {
+    return { ok: false, message: "Mais de um tema de projeto corresponde a este temaId; informe o tema_projeto_id ou o projetoId." };
+  }
+
+  return { ok: false, message: "Tema do projeto não encontrado" };
+}
+
 // Criar requisito
 router.post("/", async (req, res) => {
   try {
-    const { nome, temaId, leisIds } = req.body;
+    const { nome, temaId, leisIds, projetoId } = req.body;
 
     if (!nome || !temaId) {
       return res.status(400).json({ 
         error: "nome e temaId são obrigatórios" 
       });
+    }
+
+    const temaProjeto = await resolveTemaProjetoId(temaId, projetoId);
+    if (!temaProjeto.ok) {
+      return res.status(400).json({ error: temaProjeto.message });
     }
 
     // Gerar ID único para o requisito
@@ -20,7 +70,7 @@ router.post("/", async (req, res) => {
     // Inserir requisito
     const result = await pool.query(
       'INSERT INTO requisitos (id, tema_projeto_id, nome, status, evidencia) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [id, parseInt(temaId), nome, 'pendente', '']
+      [id, temaProjeto.value, nome, 'pendente', '']
     );
 
     const novoRequisito = result.rows[0];
@@ -65,9 +115,14 @@ router.get("/", async (req, res) => {
 // Listar requisitos de um tema específico dentro de um projeto
 router.get("/tema/:temaProjetoId", async (req, res) => {
   try {
+    const temaProjeto = await resolveTemaProjetoId(req.params.temaProjetoId, req.query.projetoId);
+    if (!temaProjeto.ok) {
+      return res.status(400).json({ error: temaProjeto.message });
+    }
+
     const result = await pool.query(
       'SELECT * FROM requisitos WHERE tema_projeto_id = $1',
-      [parseInt(req.params.temaProjetoId)]
+      [temaProjeto.value]
     );
 
     const requisitos = await Promise.all(
