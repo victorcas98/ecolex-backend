@@ -76,7 +76,7 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const temaProjeto = await resolveTemaProjetoId(temaId, projetoId, { createIfMissing: true });
+    const temaProjeto = await resolveTemaProjetoId(temaId, projetoId, { createIfMissing: false });
     if (!temaProjeto.ok) {
       return res.status(400).json({ error: temaProjeto.message });
     }
