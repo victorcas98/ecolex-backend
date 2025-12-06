@@ -29,10 +29,13 @@ router.post("/", upload.single("documento"), async (req, res) => {
     const { nome, link, temas, temasIds } = req.body;
     const documento = req.file ? req.file.path : null;
 
+    console.log('📝 Criando lei:', { nome, link, temas, temasIds, documento });
+
     // Aceitar tanto 'temas' (FormData stringify) quanto 'temasIds' (JSON)
     const temasIdsRaw = temas || temasIds;
 
     if (!temasIdsRaw) {
+      console.log('❌ Nenhum tema fornecido');
       return res.status(400).json({ 
         error: "Pelo menos um tema deve ser vinculado à lei" 
       });
@@ -43,7 +46,10 @@ router.post("/", upload.single("documento"), async (req, res) => {
       ? JSON.parse(temasIdsRaw) 
       : temasIdsRaw;
 
+    console.log('📋 Temas processados:', temasArray);
+
     if (!Array.isArray(temasArray) || temasArray.length === 0) {
+      console.log('❌ Array de temas inválido');
       return res.status(400).json({ 
         error: "Pelo menos um tema deve ser vinculado à lei" 
       });
@@ -51,18 +57,22 @@ router.post("/", upload.single("documento"), async (req, res) => {
 
     // Validar se todos os temas existem
     for (const temaId of temasArray) {
+      console.log('🔍 Verificando tema:', temaId);
       const tema = await pool.query(
         'SELECT id FROM temas WHERE id = $1',
         [parseInt(temaId)]
       );
       
       if (tema.rows.length === 0) {
+        console.log('❌ Tema não encontrado:', temaId);
         return res.status(400).json({ 
           error: `Tema não encontrado: ${temaId}` 
         });
       }
     }
 
+    console.log('💾 Inserindo lei no banco...');
+    
     // Inserir lei
     const result = await pool.query(
       'INSERT INTO leis (nome, link, documento) VALUES ($1, $2, $3) RETURNING *',
@@ -70,15 +80,19 @@ router.post("/", upload.single("documento"), async (req, res) => {
     );
 
     const novaLei = result.rows[0];
+    console.log('✅ Lei criada:', novaLei);
 
     // Vincular temas
     for (const temaId of temasArray) {
+      console.log('🔗 Vinculando tema:', temaId);
       await pool.query(
         'INSERT INTO leis_temas (lei_id, tema_id) VALUES ($1, $2)',
         [novaLei.id, parseInt(temaId)]
       );
     }
 
+    console.log('✅ Lei criada com sucesso!');
+    
     res.status(201).json({
       id: novaLei.id.toString(),
       nome: novaLei.nome,
@@ -87,8 +101,9 @@ router.post("/", upload.single("documento"), async (req, res) => {
       temasIds: temasArray.map(id => id.toString())
     });
   } catch (error) {
-    console.error('Erro ao criar lei:', error);
-    res.status(500).json({ error: 'Erro ao criar lei' });
+    console.error('❌ Erro ao criar lei:', error);
+    console.error('Stack:', error.stack);
+    res.status(500).json({ error: 'Erro ao criar lei', details: error.message });
   }
 });
 
