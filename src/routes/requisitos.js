@@ -109,9 +109,24 @@ router.post("/", async (req, res) => {
 
     console.log('✓ [POST /requisitos] tema_projeto_id resolvido:', temaProjeto.value);
 
-    // Gerar ID único para o requisito
-    const id = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Gerar ID único para o requisito com mais entropia
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substr(2, 12);
+    const id = `req-${timestamp}-${random}`;
     console.log('🆔 [POST /requisitos] ID gerado:', id);
+
+    // Verificar se já existe (improvável, mas por segurança)
+    const existingCheck = await pool.query(
+      'SELECT id FROM requisitos WHERE id = $1',
+      [id]
+    );
+    
+    if (existingCheck.rows.length > 0) {
+      console.log('⚠️ [POST /requisitos] ID duplicado detectado, gerando novo...');
+      const newId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 12)}-${Math.random().toString(36).substr(2, 6)}`;
+      console.log('🆔 [POST /requisitos] Novo ID gerado:', newId);
+      return res.status(500).json({ error: 'Erro ao gerar ID único, tente novamente' });
+    }
 
     // Inserir requisito
     console.log('💾 [POST /requisitos] Inserindo requisito no banco:', { id, tema_projeto_id: temaProjeto.value, nome });

@@ -76,10 +76,13 @@ router.post("/", async (req, res) => {
       if (tema.requisitos && Array.isArray(tema.requisitos)) {
         console.log('📄 [POST /projetos] Inserindo', tema.requisitos.length, 'requisitos...');
         for (const req of tema.requisitos) {
-          console.log('🔸 [POST /projetos] Inserindo requisito:', req.nome, 'com id:', req.id);
+          // Gerar ID único no backend (não confiar no frontend)
+          const requisitoId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 12)}`;
+          console.log('🔸 [POST /projetos] Inserindo requisito:', req.nome, 'com novo id:', requisitoId);
+          
           await pool.query(
             'INSERT INTO requisitos (id, tema_projeto_id, nome, status, evidencia, data_validade) VALUES ($1, $2, $3, $4, $5, $6)',
-            [req.id, temaProjeto.id, req.nome, req.status || 'pendente', req.evidencia || '', req.dataValidade || null]
+            [requisitoId, temaProjeto.id, req.nome, req.status || 'pendente', req.evidencia || '', req.dataValidade || null]
           );
           console.log('✓ [POST /projetos] Requisito inserido');
 
@@ -89,7 +92,7 @@ router.post("/", async (req, res) => {
             for (const leiId of req.leisIds) {
               await pool.query(
                 'INSERT INTO leis_requisito (requisito_id, lei_id) VALUES ($1, $2)',
-                [req.id, parseInt(leiId)]
+                [requisitoId, parseInt(leiId)]
               );
             }
             console.log('✓ [POST /projetos] Leis vinculadas');
