@@ -1,9 +1,27 @@
 import pg from "pg";
 const { Pool } = pg;
 
+// Validação crítica da DATABASE_URL
+if (!process.env.DATABASE_URL) {
+  console.error('');
+  console.error('========================================')
+  console.error('❌ ERRO CRÍTICO: DATABASE_URL não definida!');
+  console.error('========================================')
+  console.error('Configure a variável de ambiente DATABASE_URL no arquivo .env');
+  console.error('Exemplo para Neon:');
+  console.error('DATABASE_URL=postgresql://user:password@your-db.neon.tech/dbname?sslmode=require');
+  console.error('');
+  process.exit(1);
+}
+
+// Configuração SSL: Neon requer SSL, Docker local não
+const isNeon = process.env.DATABASE_URL.includes('neon.tech');
+const isProduction = process.env.NODE_ENV === 'production';
+const requireSSL = isNeon || isProduction;
+
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: requireSSL ? { rejectUnauthorized: false } : false,
 });
 
 // 🔍 Teste de conexão detalhado ao iniciar

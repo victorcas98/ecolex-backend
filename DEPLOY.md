@@ -1,6 +1,6 @@
-# 🚀 Guia de Deploy no Railway - MVP
+# 🚀 Guia de Deploy no Render + Neon - MVP
 
-Este guia contém o passo a passo completo para fazer deploy do backend no Railway.
+Este guia contém o passo a passo completo para fazer deploy do backend no **Render** usando banco de dados **Neon**.
 
 ---
 
@@ -8,95 +8,295 @@ Este guia contém o passo a passo completo para fazer deploy do backend no Railw
 
 - ✅ Conta no GitHub
 - ✅ Código commitado no repositório GitHub
-- ✅ Conta no Railway (gratuita)
+- ✅ Conta no Render (gratuita)
+- ✅ Conta no Neon (gratuita)
 
 ---
 
-## 🚂 **PASSO 1: Preparar Repositório GitHub**
+## 🗄️ **PASSO 1: Configurar Banco de Dados Neon**
 
-### 1.1 Verificar arquivos necessários
+### 1.1 Criar Projeto no Neon
 
-Certifique-se que estes arquivos existem:
-- ✅ `.gitignore` (com `.env` e `node_modules/`)
-- ✅ `.env.example` (exemplo das variáveis)
-- ✅ `package.json` (com `engines` configurado)
-- ✅ `schema.sql` (schema do banco)
+1. Acesse: https://neon.tech
+2. Clique em **"Sign Up"** ou **"Login with GitHub"**
+3. Clique em **"Create a project"**
+4. Configure:
+   - **Project name**: `ecolex-db` (ou nome de sua preferência)
+   - **Database name**: `neondb` (padrão)
+   - **Region**: `US East (Ohio)` (ou mais próximo)
+5. Clique em **"Create Project"**
 
-### 1.2 Commitar e enviar para GitHub
+### 1.2 Copiar Connection String
 
-```bash
-git add .
-git commit -m "Preparar para deploy no Railway"
-git push origin main
-```
+1. Após criar, você verá a **Connection String**
+2. Copie a URL que começa com `postgresql://`
+3. **IMPORTANTE**: Salve essa URL em local seguro
+4. Exemplo:
+   ```
+   postgresql://usuario:senha@ep-xxxx.us-east-1.aws.neon.tech/neondb?sslmode=require
+   ```
+
+### 1.3 Executar Schema no Neon
+
+1. No painel do Neon, clique em **"SQL Editor"**
+2. Copie todo o conteúdo do arquivo `schema.sql` do seu projeto
+3. Cole no editor SQL e clique em **"Run"**
+4. Verifique se todas as tabelas foram criadas com sucesso
 
 ---
 
-## 🚂 **PASSO 2: Criar Projeto no Railway**
+## 🚀 **PASSO 2: Criar Projeto no Render**
 
-### 2.1 Acessar Railway
+### 2.1 Acessar Render
 
-1. Acesse: https://railway.app
-2. Clique em **"Login"**
+1. Acesse: https://render.com
+2. Clique em **"Get Started for Free"**
 3. Escolha **"Login with GitHub"**
-4. Autorize o Railway a acessar seus repositórios
+4. Autorize o Render a acessar seus repositórios
 
-### 2.2 Criar Novo Projeto
+### 2.2 Criar Novo Web Service
 
-1. Clique em **"New Project"**
-2. Selecione **"Deploy from GitHub repo"**
-3. Escolha o repositório: `ecolex-backend`
-4. Railway vai começar o deploy automaticamente
+1. No Dashboard, clique em **"New +"**
+2. Selecione **"Web Service"**
+3. Conecte seu repositório GitHub: `ecolex-backend`
+4. Clique em **"Connect"**
 
-### 2.3 Aguardar Build Inicial
+### 2.3 Configurar o Serviço
 
-- Railway vai instalar dependências
-- **Vai falhar na primeira vez** (normal, falta o banco de dados)
-- Não se preocupe, vamos adicionar o banco agora!
+Preencha os campos:
 
----
-
-## 🗄️ **PASSO 3: Adicionar PostgreSQL**
-
-### 3.1 Adicionar Banco de Dados
-
-1. No seu projeto Railway, clique em **"New"** (botão roxo)
-2. Selecione **"Database"**
-3. Escolha **"Add PostgreSQL"**
-4. Railway vai criar o banco automaticamente
-
-### 3.2 Conectar Banco ao Backend
-
-1. Clique no serviço do **backend** (não no banco)
-2. Vá na aba **"Variables"**
-3. Clique em **"+ New Variable"** → **"Add Reference"**
-4. Selecione o PostgreSQL e escolha **"DATABASE_URL"**
-5. Railway vai adicionar automaticamente a variável
+| Campo | Valor |
+|-------|-------|
+| **Name** | `ecolex-backend` (ou nome de sua preferência) |
+| **Region** | Escolha a mesma região do Neon (ex: Ohio) |
+| **Branch** | `main` |
+| **Root Directory** | (deixe em branco) |
+| **Runtime** | `Node` |
+| **Build Command** | `npm install` |
+| **Start Command** | `npm start` |
+| **Instance Type** | `Free` |
 
 ---
 
-## ⚙️ **PASSO 4: Configurar Variáveis de Ambiente**
+## ⚙️ **PASSO 3: Configurar Variáveis de Ambiente**
 
-### 4.1 Adicionar Variáveis Manualmente
+### 3.1 Adicionar Environment Variables
 
-No serviço do **backend**, vá em **"Variables"** e adicione:
+Antes de fazer deploy, role até **"Environment Variables"** e adicione:
 
 | Variável | Valor |
 |----------|-------|
 | `NODE_ENV` | `production` |
-| `BASE_URL` | `https://${{RAILWAY_PUBLIC_DOMAIN}}` |
-| `PORT` | (deixe em branco, Railway configura automaticamente) |
+| `DATABASE_URL` | Cole a Connection String do Neon aqui |
 
-### 4.2 Verificar DATABASE_URL
+**Exemplo do DATABASE_URL**:
+```
+postgresql://neondb_owner:npg_xxxxx@ep-xxxx.us-east-1.aws.neon.tech/neondb?sslmode=require
+```
 
-- A variável `DATABASE_URL` deve estar preenchida automaticamente
-- Exemplo: `postgresql://postgres:senha@host:5432/railway`
+### 3.2 Iniciar Deploy
+
+1. Após adicionar as variáveis, clique em **"Create Web Service"**
+2. O Render vai começar o build automaticamente
+3. Aguarde 2-5 minutos para o deploy completar
 
 ---
 
-## 🗂️ **PASSO 5: Criar Schema do Banco**
+## 🗂️ **PASSO 4: Verificar Deploy**
 
-### 5.1 Acessar Query Editor
+### 4.1 Acessar Logs
+
+1. No painel do Render, vá em **"Logs"**
+2. Você deve ver:
+   ```
+   ========================================
+   ✅ CONECTADO AO BANCO DE DADOS!
+   ========================================
+   📦 Database: neondb
+   ☁️  PROVEDOR: NEON (cloud)
+   ```
+
+### 4.2 Testar API
+
+1. Copie a URL do serviço (ex: `https://ecolex-backend.onrender.com`)
+2. Teste no navegador:
+   ```
+   https://ecolex-backend.onrender.com/api/health
+   ```
+3. Deve retornar status 200 OK
+
+---
+
+## 🔄 **PASSO 5: Executar Migrations (Opcional)**
+
+Se você fez alterações no schema após o deploy inicial:
+
+### 5.1 Via Render Shell
+
+1. No Render, clique em **"Shell"** (no menu lateral)
+2. Execute:
+   ```bash
+   npm run migrate
+   ```
+
+### 5.2 Via SQL Editor do Neon
+
+1. Acesse o painel do Neon
+2. Vá em **"SQL Editor"**
+3. Cole o conteúdo de `migrations/001_update_schema.sql`
+4. Clique em **"Run"**
+
+---
+
+## 🌐 **PASSO 6: Configurar Frontend**
+
+### 6.1 Adicionar URL do Backend no Frontend
+
+No projeto `ecolex-frontend`, crie/edite o arquivo `.env`:
+
+```bash
+VITE_API_URL=https://seu-backend.onrender.com
+```
+
+Substitua `seu-backend.onrender.com` pela URL real do Render.
+
+### 6.2 Verificar CORS
+
+O backend já está configurado para aceitar requisições do frontend. Verifique em `src/index.js`:
+
+```javascript
+app.use(cors({
+  origin: process.env.FRONTEND_URL || '*',
+  credentials: true
+}));
+```
+
+---
+
+## 🔧 **PASSO 7: Preparar Repositório GitHub (para próximos deploys)**
+
+### 7.1 Verificar arquivos necessários
+
+Certifique-se que estes arquivos existem:
+- ✅ `.gitignore` (com `.env` e `node_modules/`)
+- ✅ `.env.example` (exemplo das variáveis)
+- ✅ `package.json` (com `engines` e scripts configurados)
+- ✅ `schema.sql` (schema do banco)
+
+### 7.2 Commitar e enviar para GitHub
+
+```bash
+git add .
+git commit -m "Preparar para deploy no Render com Neon"
+git push origin main
+```
+
+**OBS**: O Render fará **auto-deploy** sempre que você fizer push para a branch `main`!
+
+---
+
+## 📊 **PASSO 8: Monitoramento e Troubleshooting**
+
+### 8.1 Monitorar Logs do Render
+
+- Acesse **"Logs"** no painel do Render
+- Verifique mensagens de erro ou avisos
+- Logs são atualizados em tempo real
+
+### 8.2 Monitorar Banco de Dados Neon
+
+- Acesse o painel do Neon
+- Vá em **"Monitoring"** para ver:
+  - Conexões ativas
+  - Uso de storage
+  - Queries executadas
+
+### 8.3 Problemas Comuns
+
+#### ❌ Erro: "Failed to connect to database"
+**Solução**: Verifique se `DATABASE_URL` está correta no Render e inclui `?sslmode=require`
+
+#### ❌ Erro: "Table does not exist"
+**Solução**: Execute o `schema.sql` no SQL Editor do Neon
+
+#### ❌ Erro: "Build failed"
+**Solução**: Verifique se `package.json` tem os scripts `start` e as dependências corretas
+
+#### ❌ Frontend não conecta ao backend
+**Solução**: 
+1. Verifique se `VITE_API_URL` no frontend está correto
+2. Verifique CORS no backend
+3. Certifique-se que o backend está rodando (status "Live" no Render)
+
+---
+
+## 🎯 **Checklist Final de Deploy**
+
+- [ ] Banco de dados criado no Neon
+- [ ] Schema executado no Neon (tabelas criadas)
+- [ ] Web Service criado no Render
+- [ ] `DATABASE_URL` configurada no Render
+- [ ] Deploy completado com sucesso
+- [ ] Logs mostram "CONECTADO AO BANCO DE DADOS"
+- [ ] Endpoint `/api/health` respondendo
+- [ ] Frontend configurado com URL do backend
+- [ ] CORS funcionando entre frontend e backend
+
+---
+
+## 🚀 **Próximos Passos**
+
+### Deploy do Frontend
+
+Se seu frontend está em repositório separado:
+
+1. No Render, clique em **"New +" → "Static Site"**
+2. Conecte o repositório `ecolex-frontend`
+3. Configure:
+   - **Build Command**: `npm install && npm run build`
+   - **Publish Directory**: `dist`
+4. Adicione a variável de ambiente:
+   - `VITE_API_URL`: URL do backend no Render
+
+### Domínio Customizado (Opcional)
+
+1. No Render, vá em **"Settings" → "Custom Domain"**
+2. Adicione seu domínio
+3. Configure DNS conforme instruções do Render
+
+---
+
+## 💡 **Dicas de Performance**
+
+### Neon
+- ✅ **Auto-suspend**: Banco hiberna após inatividade (plano gratuito)
+- ✅ **Auto-scale**: Ajusta recursos automaticamente
+- ✅ **Branching**: Crie branches do banco para testes
+
+### Render
+- ✅ **Auto-deploy**: Push no GitHub = deploy automático
+- ✅ **Health checks**: Render monitora a saúde do serviço
+- ✅ **Sleep após inatividade**: Serviço gratuito dorme após 15min (demora ~30s para acordar)
+
+---
+
+## 📚 **Recursos Úteis**
+
+- [Documentação Neon](https://neon.tech/docs)
+- [Documentação Render](https://render.com/docs)
+- [Connection Pooling Neon](https://neon.tech/docs/connect/connection-pooling)
+- [Deploy Node.js no Render](https://render.com/docs/deploy-node-express-app)
+
+---
+
+## ✅ **Deploy Concluído!**
+
+Seu backend agora está rodando em:
+- 🗄️ **Banco de Dados**: Neon (PostgreSQL serverless)
+- 🚀 **Backend**: Render (auto-deploy ativado)
+- 🌐 **URL**: `https://seu-servico.onrender.com`
+
+**Tudo funcionando!** 🎉
 
 1. Clique no serviço **PostgreSQL**
 2. Vá na aba **"Data"**

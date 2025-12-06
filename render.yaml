@@ -1,0 +1,17 @@
+# Render Build Configuration
+# Este arquivo é opcional, mas ajuda o Render a entender como fazer o deploy
+
+services:
+  - type: web
+    name: ecolex-backend
+    env: node
+    region: oregon # ou a região mais próxima do seu Neon
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # Configure manualmente no painel do Render

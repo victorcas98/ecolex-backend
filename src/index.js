@@ -31,6 +31,17 @@ app.get("/", (req, res) => {
   });
 });
 
+// Health check endpoint para Render
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ 
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    database: process.env.DATABASE_URL ? 'connected' : 'not configured'
+  });
+});
+
 app.use("/api/projetos", projetosRoutes);
 app.use("/api/leis", leisRoutes);
 app.use("/api/temas", temasRoutes);
